@@ -1,0 +1,432 @@
+---
+title: "Practica Visualizacion con R"
+author: "Luca Bettini"
+date: "24/11/2021"
+output:
+  word_document: default
+  pdf_document: default
+  html_document:
+    df_print: paged
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Dataset: wine quality
+
+Dataset wine-quality-white-and-red.csv was downloaded from kaggle, link   https://www.kaggle.com/yasserh/wine-quality-dataset  \
+
+This dataset contains the following columns:  
+
+**Input variables** (based on physicochemical tests):\
+
+1 - fixed acidity (tartaric acid — g / dm³)\
+2 - volatile acidity (acetic acid — g / dm³)\
+3 - citric acid (g / dm³)\
+4 - residual sugar (g / dm³)\
+5 - chlorides (sodium chloride — g / dm³)\
+6 - free sulfur dioxide (mg / dm³)\
+7 - total sulfur dioxide (mg / dm³)\
+8 - density (g / cm³)\
+9 - pH\
+10 - sulphates (potassium sulphate — g / dm3)\
+11 - alcohol (% by volume)\
+
+**Output variable** (based on sensory data):\
+
+12 - quality (score between 0 and 10)\
+
+# Import library and upload wine dataset
+
+
+```{r wine_import, warning=FALSE, message=FALSE}
+
+library(dplyr)
+library(ggplot2)
+library(gridExtra)
+library(caret)
+library(ggpubr)
+library(lemon)
+
+df_wine <- read.csv("wine-quality-white-and-red.csv", stringsAsFactors = TRUE)
+
+```
+# Wine dataset quick look 
+
+As I did not know Kaggle before, I simply browse pages and choosed wine-quality-white-and-red.csv dataset based on alcohol thrill and wine passion (later I realized it is a dataset well known and already higly exploited).\
+
+I learnt by reading that variable **quality**, the only variable based on sensory data, seems to be affected by experts opinions which is also based on their personal experiences. Surely quality could depend on more variables like year of production, grape types, location of production, maybe meteorology and so on, features not present in this dataset.\
+
+# Some questions?
+
+Are there any significant difference between red and white wine?\
+
+Are there any variables which is related alcohol level?\
+
+Are there any interesting behaviours between variables which could influence wine quality?\
+
+# General histogram samples by type (RED and WHITE)
+
+```{r wine_typehist, echo=FALSE}
+#variables histograms by type (RED and WHITE)
+grid_arrange_shared_legend(
+  # red and white samples
+  ggplot(data = df_wine) + 
+    geom_bar(aes(type, fill = type),  color = 'black', size=0.5) +
+    theme(legend.position = 'none') +
+    theme_dark() +
+    labs(x="type", y='frequency'),
+  # samples quality distribution split by type
+  ggplot(data=df_wine,aes(quality, fill=type)) +
+    geom_histogram(bins = 7, color = 'black', size=0.5)+
+    theme(legend.position = 'none') + 
+    theme_dark() +
+    labs(x="quality", y='frequency'), 
+ncol=2, nrow = 1, position='top')
+
+##########################
+grid_arrange_shared_legend(
+  # samples fixed.acidity  distribution split by type
+  ggplot(data=df_wine,aes(fixed.acidity, fill=type)) +
+    geom_histogram(binwidth = 1.2, color = 'black', size=0.5)+
+    theme(legend.position = 'none') + 
+    theme_dark() +
+    coord_cartesian(xlim=c(min(df_wine$fixed.acidity)-0.8,16)) +
+    labs(x="fixed acidity", y='frequency'),
+  # samples volatile.acidity  distribution split by type
+  ggplot(data=df_wine,aes(volatile.acidity, fill=type)) +
+    geom_histogram(binwidth = 1/11, color = 'black', size=0.5)+
+    theme(legend.position = 'none') + 
+    theme_dark() +
+    coord_cartesian(xlim=c(min(df_wine$volatile.acidity)-0.05,1.2)) +
+    labs(x="volatile acidity", y='frequency'),
+  # samples citric.acid  distribution split by type
+  ggplot(data=df_wine,aes(citric.acid, fill=type)) +
+    geom_histogram(binwidth = 1/11, color = 'black', size=0.5)+
+    theme(legend.position = 'none') + 
+    theme_dark() +
+    coord_cartesian(xlim=c(min(df_wine$citric.acid)-0.05,1.05)) +
+    labs(x="citric acid", y='frequency'),
+  # samples residual.sugar  distribution split by type
+  ggplot(data=df_wine,aes(residual.sugar, fill=type)) +
+    geom_histogram(binwidth = 2, color = 'black', size=0.5)+
+    theme(legend.position = 'none') + 
+    theme_dark() +
+    coord_cartesian(xlim=c(min(df_wine$residual.sugar)-1.5,22)) +
+    labs(x="residual sugar", y='frequency'), 
+ncol=2, nrow = 2, position='top') 
+
+grid_arrange_shared_legend(
+  # samples chlorides  distribution split by type
+  ggplot(data=df_wine,aes(chlorides, fill=type)) +
+    geom_histogram(binwidth = 1/40, color = 'black', size=0.5)+
+    theme(legend.position = 'none') + 
+    theme_dark() +
+    coord_cartesian(xlim=c(min(df_wine$chlorides)-0.020,0.315)) +
+    labs(x="chlorides", y='frequency'), 
+  # samples free.sulfur.dioxide  distribution split by type
+  ggplot(data=df_wine,aes(free.sulfur.dioxide, fill=type)) +
+    geom_histogram(binwidth = 9, color = 'black', size=0.5)+
+    theme(legend.position = 'none') + 
+    theme_dark() +
+    coord_cartesian(xlim=c(min(df_wine$free.sulfur.dioxide)-5,113)) +
+    labs(x="free sulfur dioxide", y='frequency'), 
+  # samples total.sulfur.dioxide  distribution split by type
+  ggplot(data=df_wine,aes(total.sulfur.dioxide, fill=type)) +
+    geom_histogram(binwidth = 20, color = 'black', size=0.5)+
+    theme(legend.position = 'none') + 
+    theme_dark() +
+    coord_cartesian(xlim=c(min(df_wine$total.sulfur.dioxide)-15,265)) +
+    labs(x="total sulfur dioxide", y='frequency'), 
+  # samples density distribution split by type
+  ggplot(data=df_wine,aes(density, fill=type)) +
+    geom_histogram(binwidth = 1/200, color = 'black', size=0.5)+
+    theme(legend.position = 'none') + 
+    theme_dark() +
+    coord_cartesian(xlim=c(min(df_wine$density)-0.005,1.05)) +
+    labs(x="density", y='frequency'), 
+ncol=2, nrow = 2, position='top')
+
+grid_arrange_shared_legend(
+  # samples pH  distribution split by type
+  ggplot(data=df_wine,aes(pH, fill=type)) +
+    geom_histogram(binwidth = 1/8, color = 'black', size=0.5)+
+    theme(legend.position = 'none') + 
+    theme_dark() +
+    coord_cartesian(xlim=c(min(df_wine$pH)-0.05,4.10)) +
+    labs(x="pH", y='frequency'), 
+  # samples sulphates  distribution split by type
+  ggplot(data=df_wine,aes(sulphates, fill=type)) +
+    geom_histogram(binwidth = 1/9, color = 'black', size=0.5)+
+    theme(legend.position = 'none') + 
+    theme_dark() + 
+    coord_cartesian(xlim=c(min(df_wine$sulphates)-0.05,2)) +
+    labs(x="sulphates", y='frequency'),
+  # samples alcohol distribution split by type
+  ggplot(data=df_wine,aes(alcohol, fill=type)) +
+    geom_histogram(binwidth = 1/2, color = 'black', size=0.5)+
+    theme(legend.position = 'none') +
+    theme_dark() + 
+    coord_cartesian(xlim=c(min(df_wine$alcohol)-0.2,max(df_wine$alcohol))) +
+    labs(x="alcohol", y='frequency'), 
+  ncol=2, nrow = 2, position='top')
+
+
+```
+
+# Scatter samples on alcohol (y axis) by other variables (x axis) with smoothed conditional means (loess method)
+
+```{r var_on_alcohol, echo=FALSE, warning = FALSE, message = FALSE}
+## Scatter samples on alcohol by type (RED and WHITE) 
+
+grid_arrange_shared_legend(
+  ggplot(data=df_wine, aes(y=alcohol, x=quality, col=type)) +
+    geom_point(alpha=1/5, size=1/2, shape=19)+ 
+    geom_smooth(method = 'loess') +
+    scale_color_manual(values=c('#500805','#bc6d4f')) +
+    labs(y="alcohol",x="quality")+
+    coord_cartesian(ylim=c(8,15), xlim=c(min(df_wine$quality),10)),
+  ggplot(data=df_wine, aes(y=alcohol, x=sulphates, col=type)) +
+    geom_point(alpha=1/5, size=1/2, shape=19)+ 
+    geom_smooth(method = 'loess') +
+    scale_color_manual(values=c('#500805','#bc6d4f')) +
+    labs(y="alcohol",x="sulphates")+
+    coord_cartesian(ylim=c(8,15), xlim=c(min(df_wine$sulphates),1.2)),
+  ggplot(data=df_wine, aes(y=alcohol, x=pH, col=type)) +
+    geom_point(alpha=1/5, size=1/3, shape=19)+ 
+    geom_smooth(method = 'loess') +
+    scale_color_manual(values=c('#500805','#bc6d4f')) +
+    labs(y="alcohol",x="pH")+
+    coord_cartesian(ylim=c(8,15), xlim=c(min(df_wine$pH),3.95)),
+  ggplot(data=df_wine, aes(y=alcohol, x=density, col=type)) +
+    geom_point(alpha=1/5, size=1/3, shape=19)+ 
+    geom_smooth(method = 'loess') +
+    scale_color_manual(values=c('#500805','#bc6d4f')) +
+    labs(y="alcohol",x="density")+
+    coord_cartesian(ylim=c(8,15), xlim=c(min(df_wine$density),1.005)),
+ncol=2, nrow = 2, position='top')
+
+grid_arrange_shared_legend(
+  ggplot(data=df_wine, aes(y=alcohol, x=total.sulfur.dioxide, col=type)) +
+    geom_point(alpha=1/5, size=1/2, shape=19)+ 
+    geom_smooth(method = 'loess') +
+    scale_color_manual(values=c('#500805','#bc6d4f')) +
+    labs(y="alcohol",x="total sulfur dioxide")+
+    coord_cartesian(ylim=c(8,15), xlim=c(min(df_wine$total.sulfur.dioxide),265)),
+  ggplot(data=df_wine, aes(y=alcohol, x=free.sulfur.dioxide, col=type)) +
+    geom_point(alpha=1/5, size=1/2, shape=19)+ 
+    geom_smooth(method = 'loess') +
+    scale_color_manual(values=c('#500805','#bc6d4f')) +
+    labs(y="alcohol",x="free sulfur dioxide")+
+    coord_cartesian(ylim=c(8,15), xlim=c(min(df_wine$free.sulfur.dioxide),90)),
+  ggplot(data=df_wine, aes(y=alcohol, x=chlorides, col=type)) +
+    geom_point(alpha=1/5, size=1/2, shape=19)+ 
+    geom_smooth(method = 'loess') +
+    scale_color_manual(values=c('#500805','#bc6d4f')) +
+    labs(y="alcohol",x="chlorides")+
+    coord_cartesian(ylim=c(8,15), xlim=c(min(df_wine$chlorides),0.25)),
+  ggplot(data=df_wine, aes(y=alcohol, x=residual.sugar, col=type)) +
+    geom_point(alpha=1/5, size=1/2, shape=19)+ 
+    geom_smooth(method = 'loess') +
+    scale_color_manual(values=c('#500805','#bc6d4f')) +
+    labs(y="alcohol",x="residual sugar")+
+    coord_cartesian(ylim=c(8,15), xlim=c(min(df_wine$residual.sugar),20)),
+ncol=2, nrow = 2, position='top')
+
+grid_arrange_shared_legend(
+  ggplot(data=df_wine, aes(y=alcohol, x=citric.acid, col=type)) +
+    geom_point(alpha=1/5, size=1/2, shape=19)+ 
+    geom_smooth(method = 'loess') +
+    scale_color_manual(values=c('#500805','#bc6d4f')) +
+    labs(y="alcohol",x="citric acid")+
+    coord_cartesian(ylim=c(8,15), xlim=c(min(df_wine$citric.acid),1.005)),
+  ggplot(data=df_wine, aes(y=alcohol, x=volatile.acidity, col=type)) +
+    geom_point(alpha=1/5, size=1/2, shape=19)+ 
+    geom_smooth(method = 'loess') +
+    scale_color_manual(values=c('#500805','#bc6d4f')) +
+    labs(y="alcohol",x="volatile acidity")+
+    coord_cartesian(ylim=c(8,15), xlim=c(min(df_wine$volatile.acidity),1.1)),
+  ggplot(data=df_wine, aes(y=alcohol, x=fixed.acidity, col=type)) +
+    geom_point(alpha=1/5, size=1/2, shape=19)+ 
+    geom_smooth(method = 'loess') +
+    scale_color_manual(values=c('#500805','#bc6d4f')) +
+    labs(y="alcohol",x="fixed acidity")+
+    coord_cartesian(ylim=c(8,15), xlim=c(min(df_wine$fixed.acidity),16)),
+ncol=2, nrow = 2, position='top')
+
+
+```
+
+# Plot samples for red and white wine split on quality factor
+
+```{r quality_red_vs_white, echo=FALSE}
+
+#######################################
+
+grid_arrange_shared_legend(
+  #fixed.acidity WHITE
+  ggplot(df_wine %>% filter(type=='white'), aes(fixed.acidity, colour = factor(quality))) + 
+    geom_density(size=1/2) +
+    theme(legend.position = 'none') +
+    labs(x="fixed acidity", y='white frequency'),
+  #fixed.acidity RED
+  ggplot(df_wine %>% filter(type=='red'), aes(fixed.acidity, colour = factor(quality))) + 
+    geom_density(size=1/2) + 
+    theme(legend.position = 'none') +
+    labs(x="fixed acidity", y='red frequency'),
+  #citric.acid WHITE
+  ggplot(((df_wine %>% filter(type=='white')) %>% filter(citric.acid<1.005)), aes(citric.acid, colour = factor(quality))) + 
+    geom_density(size=1/2) + 
+    theme(legend.position = "none") +
+    labs(x="citric acid", y='white frequency'),
+  #citric.acid RED
+  ggplot(((df_wine %>% filter(type=='red')) %>% filter(citric.acid<1.005)), aes(citric.acid, colour = factor(quality))) + 
+    geom_density(size=1/2) + 
+    theme(legend.position = 'none') +
+    labs(x="citric acid", y='red frequency'),
+  ncol=2, nrow = 2, position='top')
+
+#######################################
+
+grid_arrange_shared_legend(
+  #volatile.acidity
+  ggplot((df_wine %>% filter(type=='white')), aes(volatile.acidity, colour = factor(quality))) + 
+    geom_density(size=1/2) + 
+    theme(legend.position = "none") +
+    labs(x="volatile acidity", y='white frequency'),
+  #volatile.acidity
+  ggplot((df_wine %>% filter(type=='red')), aes(volatile.acidity, colour = factor(quality))) + 
+    geom_density(size=1/2) + 
+    theme(legend.position = "none") +
+    labs(x="volatile acidity", y='red frequency'),
+  #residual.sugar
+  ggplot(((df_wine %>% filter(type=='white')) %>% filter(residual.sugar<20)), aes(residual.sugar, colour = factor(quality))) + 
+    geom_density(size=1/2) + 
+    theme(legend.position = "none") +
+    labs(x="residual sugar", y='white frequency'),
+  #residual.sugar
+  ggplot(((df_wine %>% filter(type=='red')) %>% filter(residual.sugar<10)), aes(residual.sugar, colour = factor(quality))) + 
+    geom_density(size=1/2) + 
+    theme(legend.position = "none") +
+    labs(x="residual sugar", y='red frequency'),
+  ncol=2, nrow = 2, position='top')
+
+#######################################
+grid_arrange_shared_legend(
+  #chlorides
+  ggplot(((df_wine %>% filter(type=='white')) %>% filter(chlorides<0.12)), aes(chlorides, colour = factor(quality))) + 
+    geom_density(size=1/2) + 
+    theme(legend.position = "none") +
+    labs(x="chlorides", y='white frequency'),
+  #chlorides
+  ggplot(((df_wine %>% filter(type=='red')) %>% filter(chlorides<0.25)), aes(chlorides, colour = factor(quality))) + 
+    geom_density(size=1/2) + 
+    theme(legend.position = "none") +
+    labs(x="chlorides", y='red frequency'),
+  #free.sulfur.dioxide
+  ggplot((df_wine %>% filter(type=='white') %>% filter(free.sulfur.dioxide<90)), aes(free.sulfur.dioxide, colour = factor(quality))) + 
+    geom_density(size=1/2) + 
+    theme(legend.position = "none") +
+    labs(x="free sulfur dioxide", y='white frequency'),
+  #free.sulfur.dioxide
+  ggplot((df_wine %>% filter(type=='red') %>% filter(free.sulfur.dioxide<90)), aes(free.sulfur.dioxide, colour = factor(quality))) + 
+    geom_density(size=1/2) + 
+    theme(legend.position = "none") +
+    labs(x="free sulfur dioxide", y='red frequency'),
+  ncol=2, nrow = 2, position='top')
+
+#######################################
+grid_arrange_shared_legend(
+  #total.sulfur.dioxide
+  ggplot(((df_wine %>% filter(type=='white')) %>% filter(total.sulfur.dioxide<250)), aes(total.sulfur.dioxide, colour = factor(quality))) + 
+    geom_density(size=1/2) + 
+    theme(legend.position = "none") +
+    labs(x="total sulfur dioxide", y='white frequency'),
+  #total.sulfur.dioxide
+  ggplot(((df_wine %>% filter(type=='red')) %>% filter(total.sulfur.dioxide<250)), aes(total.sulfur.dioxide, colour = factor(quality))) + 
+    geom_density(size=1/2) + 
+    theme(legend.position = "none") +
+    labs(x="total sulfur dioxide", y='red frequency'),
+  #density
+  ggplot(((df_wine %>% filter(type=='white')) %>% filter(density<1.02)), aes(density, colour = factor(quality))) + 
+    geom_density(size=1/2) + 
+    theme(legend.position = "none") +
+    labs(x="density", y='white frequency'),
+  #density
+  ggplot(((df_wine %>% filter(type=='red')) %>% filter(density<1.02)), aes(density, colour = factor(quality))) + 
+    geom_density(size=1/2) + 
+    theme(legend.position = "none") +
+    labs(x="density", y='red frequency'),
+  ncol=2, nrow = 2, position='top')
+
+#######################################
+grid_arrange_shared_legend(
+  #pH
+  ggplot(((df_wine %>% filter(type=='white'))), aes(pH, colour = factor(quality))) + 
+    geom_density(size=1/2) + 
+    theme(legend.position = "none") +
+    labs(x="lab", y='white frequency'),
+  #pH
+  ggplot(((df_wine %>% filter(type=='red'))), aes(pH, colour = factor(quality))) + 
+    geom_density(size=1/2) + 
+    theme(legend.position = "none") +
+    labs(x="pH", y='red frequency'),
+  #sulphates
+  ggplot(((df_wine %>% filter(type=='white')) %>% filter(sulphates<1.2)), aes(sulphates, colour = factor(quality))) + 
+    geom_density(size=1/2) + 
+    theme(legend.position = "none") +
+    labs(x="sulphates", y='white frequency'),
+  #sulphates
+  ggplot(((df_wine %>% filter(type=='red')) %>% filter(sulphates<1.2)), aes(sulphates, colour = factor(quality))) + 
+    geom_density(size=1/2) + 
+    theme(legend.position = "none") + 
+    labs(x="sulphates", y='red frequency'),
+  ncol=2, nrow = 2, position='top')
+
+#######################################
+grid_arrange_shared_legend(
+  #alcohol on quality
+  ggplot(((df_wine %>% filter(type=='white')) %>% filter(alcohol<20)), aes(alcohol, colour = factor(quality))) + 
+    geom_density(size=1/2) +
+    theme(legend.position = "none") +
+    labs(x="alcohol", y='white frequency'), 
+  #alcohol on quality
+  ggplot(((df_wine %>% filter(type=='red')) %>% filter(alcohol<20)), aes(alcohol, colour = factor(quality))) + 
+    geom_density(size=1/2) +
+    theme(legend.position = "none") +
+    labs(x="alcohol", y='red frequency'), 
+  ncol=2, nrow = 1, position='top')
+
+#######################################
+
+```
+
+# Conclusions
+
+- dataset contains more **white** wine samples (**4898**) than **red** ones (**1599**); data could be treated in order to have better balance
+
+- some **outliers** where removed in order to have more readable graphics; outliers should be handled properly
+
+- where **alcohol** grows then **density** tends to decrease, which meet a well known common sense *(scatter - y = alcohol, x = density)*
+
+- when **fixed acidity** grows then **alcohol** level tends to decrease, then alcohol seems to stabilize between 10 - 11 % *(scatter - y = alcohol, x = fixed acidity)*
+
+- **low quality red** wine tends to have **less alcohol** than **high quality red** wine (best quality seems to have the highest alcohol level). When red wine **quality** is on 4 and 5 you can notice there a peak around only 9 % alcohol (for **quality** = 3 peak is in 10 % alcohol) *(split by quality, plot based on red wine - x = alcohol)*
+
+- split by **quality**, both red and white wine **density** behaviour looks like similar; the only remarkable difference is when white **quality** is the best (**quality** = 9), then there are 2 different peaks apparently far from standard *(split by quality, plots based on both red and white wine - x = density)*
+
+- when **sulphates** in red wine is between 50 - 62.5 g/dm3 then **quality** is low; when **sulphates** grows between 62.5-75 g/dm3 then **quality** is high *(split by quality, plots based red wine - x = density)*
+
+- speaking about white wine we can notice that, in plots split by **quality, fixed acidity, free sulfur dioxide and density** seem to behave the same way, in particular on the best quality showing 2 different peaks every time *(split by quality, plots based on white wine - x = fixed acidity, x = free sulfur dioxide and x = density)*
+
+*************************************
+
+# Further analisys
+
+In this analisys I choose to run scatter plot with numerical variables against alcohol; it could be of interest run scatter plot on different numerical variables in order search for other possible behaviours.\
+
+For further analisys may be useful to:\
+- estimate variables importance with a classification in order to better focus dataset and maybe to have a more suitable analisys\
+- investigate variables in order to discover if there are any correlation or associations in between\
+- normalize dataset\
